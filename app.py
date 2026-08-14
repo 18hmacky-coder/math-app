@@ -215,7 +215,7 @@ if st.button("解説PDFを作成する"):
                             st.success("✨ 解説PDFの作成が完了しました！")
                             
                             base64_pdf = base64.b64encode(pdf_data).decode('utf-8')
-                            pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
+                            pdf_display = f'<embed src="data:application/pdf;base64,{base64_pdf}" type="application/pdf" width="100%" height="800">'
                             st.markdown(pdf_display, unsafe_allow_html=True)
                             
                             st.download_button(
