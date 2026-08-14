@@ -4,30 +4,23 @@ from PIL import Image
 import re
 import subprocess
 import os
+import base64
 
 # ==========================================
-# 🔑 ここにご自身のAPIキーを貼り付けてください
+# 🔑 Streamlit Cloudの金庫からAPIキーを読み込む
 # ==========================================
 API_KEY = st.secrets["GEMINI_API_KEY"]
 
 # ==========================================
-# 1. 完璧な初期設定（プリアンブル）※b5j修正済み
+# 1. 完璧な初期設定（プリアンブル）
 # ==========================================
 LATEX_PREAMBLE = r"""\documentclass[paper=b5j, fontsize=8pt, fleqn, twoside]{jlreq}
-
-% --- 基本パッケージ ---
 \usepackage{luatexja, multicol, amsmath, amssymb, fancyhdr, enumitem, calc, varwidth}
-
-% --- TikZ & Graphics ---
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, shapes.arrows, calc}
 \usepackage[tikz]{multicolrule}
 \SetMCRule{line-style=dense-solid-circles, width=0.8pt}
-
-% --- TColorBox ---
 \usepackage[most]{tcolorbox}
-
-% --- フォント・寸法設定 ---
 \makeatletter
 \def\ascb@textgt#1{\textgt{#1}}
 \def\ascb@gtfamily{\gtfamily}
@@ -36,8 +29,6 @@ LATEX_PREAMBLE = r"""\documentclass[paper=b5j, fontsize=8pt, fleqn, twoside]{jlr
 \ascb@parindent@dimen=\zw
 \newcommand{\ascb@parindent}[1]{\setlength{\parindent}{#1}\relax}
 \setlength{\parindent}{1\zw}
-
-% --- Custom Box: simple (参考問題用) ---
 \DeclareTColorBox{simple}{ o m O{.5} O{} }{
   empty, left=2mm, right=2mm, top=-1mm, 
   attach boxed title to top left={xshift=\ascb@zw{1.2}{11pt}}, 
@@ -50,8 +41,6 @@ LATEX_PREAMBLE = r"""\documentclass[paper=b5j, fontsize=8pt, fleqn, twoside]{jlr
   underlay last={\draw[black,line width=#3pt](frame.north east) -- (frame.south east) -- (frame.south west) -- (frame.north west) ;},
   fonttitle=\ascb@gtfamily, IfValueTF={#1}{title=【#2】〈#1〉}{title=【#2】}, #4
 }
-
-% --- Custom Box: ptbs (重要事項・KEY) ---
 \newlength{\len@ptbs@kk@D}\newlength{\lenn@ptbs@kk@D}\newlength{\myfontsize@ptbs@kk@D}
 \newcommand{\titlelength@ptbs@kk@D}[1]{
   \setlength{\myfontsize@ptbs@kk@D}{\f@size pt}
@@ -71,8 +60,6 @@ LATEX_PREAMBLE = r"""\documentclass[paper=b5j, fontsize=8pt, fleqn, twoside]{jlr
   title={\titlelength@ptbs@kk@D{#1}#1\kern.3\zw\kern1pt},  
   after title={\tcbox[on line, boxsep=.25\myfontsize@ptbs@kk@D, boxrule=0pt, top=.1\myfontsize@ptbs@kk@D, bottom=.1\myfontsize@ptbs@kk@D, left= .5mm, right=.5mm, width=\len@ptbs@kk@D, colback=black!30!white, arc=.5mm]{\raisebox{.2ex}{\parbox{\len@ptbs@kk@D-.5\myfontsize@ptbs@kk@D-1mm}{\renewcommand{\baselinestretch}{.5}\selectfont#2}}}}, #3
 }
-
-% --- Custom Box: ascolorbox4A (問題文用・装飾付き) ---
 \DeclareTColorBox{ascolorbox4A}{ o m O{3} O{}}{
   enhanced, colback=white, colframe=white,
   attach boxed title to top left={xshift=1cm,yshift=-\tcboxedtitleheight/2}, 
@@ -106,8 +93,6 @@ LATEX_PREAMBLE = r"""\documentclass[paper=b5j, fontsize=8pt, fleqn, twoside]{jlr
   },
   IfValueTF={#1}{title=【#2】〈#1〉}{title=【#2】},#4
 }
-
-% --- Custom Command: ascboxZ (小見出し用) ---
 \tcbset{ascbox@ascolorbox/.style={after skip=1.5mm, before skip=3mm},
 ascboxsizeset@ascolorbox/.style={top=0mm,bottom=0mm,right=-1mm,left=2mm,},
 titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([yshift=.7mm,xshift=3mm]frame.south west) -- ([yshift=.7mm]frame.south east);}}}
@@ -116,8 +101,6 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
   IfBooleanTF={#4}{}{titleunderline@ascolorbox},
   IfBooleanTF={#2}{underlay={\node[#1,thick,draw=black!40!white,fill=black!70!white,draw,inner sep=#3mm] at (frame.west) {};}}{underlay={\node[#1,thick,draw=black!70!white,fill=black!40!white,draw,inner sep=#3mm] at (frame.west) {};}}
 }
-
-% --- Header/Footer (Geometry & TikZ) ---
 \newdimen\top@geom@TETSUMANE \top@geom@TETSUMANE=20mm
 \newdimen\bottom@geom@TETSUMANE \bottom@geom@TETSUMANE=20mm
 \newdimen\left@geom@TETSUMANE \left@geom@TETSUMANE=16mm
@@ -139,8 +122,6 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 \fancyhead[ER]{\Rhead@TETSUMANE{\gtfamily 数学・物理 解説}}
 \fancyhead[OL]{\Lhead@TETSUMANE{\gtfamily 数学・物理 解説}}
 \makeatother
-
-% --- 余白制御: ページ下端揃えを無効化（必須・削除禁止）---
 \raggedbottom
 \newcommand{\notefill}{\vfill\null}
 """
@@ -148,8 +129,8 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 # ==========================================
 # 2. Streamlit 画面構成
 # ==========================================
-st.set_page_config(page_title="数学解説プリント作成AI", layout="centered")
-st.title("📝 数学解説プリント作成AI (PDF出力版)")
+st.set_page_config(page_title="数学解説プリント作成AI", layout="centered", initial_sidebar_state="collapsed")
+st.title("📝 数学解説プリント作成AI (完全自動PDF表示版)")
 
 problem_text = st.text_area("問題文を入力してください", height=100)
 uploaded_image = st.file_uploader("または、問題の画像をアップロード", type=["png", "jpg", "jpeg"])
@@ -163,7 +144,6 @@ if st.button("解説PDFを作成する"):
             try:
                 client = genai.Client(api_key=API_KEY)
                 
-                # AIへの指示書（プリアンブルは書かせないように徹底）
                 prompt = f"""
                 1. 役割 (Role)
                 あなたは日本の最難関大学を目指す受験生のために、最高品質の解説プリントを作成する「予備校講師」兼「LaTeX組版のエキスパート」です。
@@ -207,49 +187,48 @@ if st.button("解説PDFを作成する"):
                         contents=prompt
                     )
                 
-                # 生成結果からLaTeXのコードブロックを抽出
                 latex_match = re.search(r"```latex\n(.*?)```", response.text, re.DOTALL)
                 latex_code = latex_match.group(1) if latex_match else response.text
-                
-                # 万が一AIがプリアンブルや \begin{document} を書いてしまった場合に備え、本文だけを抽出・掃除する
                 latex_code = latex_code.replace(r"\begin{document}", "").replace(r"\end{document}", "").strip()
                 
-                # 【ここがポイント！】Python側で完璧なプリアンブルと、AIが書いた本文をガッチャンコする
                 final_latex = LATEX_PREAMBLE + "\n\\begin{document}\n" + latex_code + "\n\\end{document}\n"
                 
-                # 抽出したコードをファイルに保存
                 with open("output.tex", "w", encoding="utf-8") as f:
                     f.write(final_latex)
-                
-                st.success("LaTeXコードの生成が完了しました！")
-                
-                # .tex ファイルのダウンロードボタン
-                st.download_button(
-                    label="📝 完璧な LaTeXソースコード (.tex) をダウンロード", 
-                    data=final_latex, 
-                    file_name="kaisetsu.tex",
-                    mime="text/plain"
-                )
 
-                # ローカルコンパイル処理（TeXLiveが入っている場合のみ機能します）
-                with st.spinner("PDFにコンパイル中... (数秒かかります)"):
+                # ==========================================
+                # PDFの自動コンパイルと画面表示処理
+                # ==========================================
+                with st.spinner("自動でPDFにコンパイル中... (数秒〜十数秒かかります)"):
                     try:
                         subprocess.run(
                             ["lualatex", "-interaction=nonstopmode", "output.tex"], 
                             check=True, 
                             capture_output=True
                         )
+                        
                         with open("output.pdf", "rb") as f:
                             pdf_data = f.read()
                         
+                        st.success("✨ 解説PDFの作成が完了しました！")
+                        
+                        base64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+                        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
+                        st.markdown(pdf_display, unsafe_allow_html=True)
+                        
                         st.download_button(
-                            label="📥 完成したPDFをダウンロード", 
+                            label="📥 このPDFを保存する", 
                             data=pdf_data, 
                             file_name="kaisetsu.pdf",
                             mime="application/pdf"
                         )
-                    except (FileNotFoundError, subprocess.CalledProcessError):
-                        st.info("💡 上のボタンから .tex をダウンロードし、Overleafに貼り付けて「Recompile」を押せば一発で完成します！")
+
+                    except FileNotFoundError:
+                        st.error("⚠️ サーバー側にLaTeXシステムがまだインストールされていません。数分待ってから再度お試しください。")
+                        st.download_button(label="📝 LaTeXソースコード (.tex) をダウンロード", data=final_latex, file_name="kaisetsu.tex", mime="text/plain")
+                    except subprocess.CalledProcessError as e:
+                        st.error("⚠️ コンパイル中にエラーが発生しました。数式が複雑すぎるか、AIのコードにミスがあります。")
+                        st.download_button(label="📝 エラーになったコード (.tex) を確認する", data=final_latex, file_name="kaisetsu_error.tex", mime="text/plain")
 
             except Exception as e:
                 st.error(f"エラーが発生しました。\n詳細: {e}")
