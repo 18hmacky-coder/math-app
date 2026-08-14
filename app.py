@@ -201,34 +201,38 @@ if st.button("解説PDFを作成する"):
                 # ==========================================
                 with st.spinner("自動でPDFにコンパイル中... (数秒〜十数秒かかります)"):
                     try:
+                        # ★修正ポイント：厳密なエラーチェックを外し、少々のミスは無視して突き進む設定に変更しました！
                         subprocess.run(
                             ["lualatex", "-interaction=nonstopmode", "output.tex"], 
-                            check=True, 
                             capture_output=True
                         )
                         
-                        with open("output.pdf", "rb") as f:
-                            pdf_data = f.read()
-                        
-                        st.success("✨ 解説PDFの作成が完了しました！")
-                        
-                        base64_pdf = base64.b64encode(pdf_data).decode('utf-8')
-                        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
-                        st.markdown(pdf_display, unsafe_allow_html=True)
-                        
-                        st.download_button(
-                            label="📥 このPDFを保存する", 
-                            data=pdf_data, 
-                            file_name="kaisetsu.pdf",
-                            mime="application/pdf"
-                        )
+                        # エラーの有無に関わらず、PDFが出来上がっていれば成功として画面に出す！
+                        if os.path.exists("output.pdf"):
+                            with open("output.pdf", "rb") as f:
+                                pdf_data = f.read()
+                            
+                            st.success("✨ 解説PDFの作成が完了しました！")
+                            
+                            base64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+                            pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
+                            st.markdown(pdf_display, unsafe_allow_html=True)
+                            
+                            st.download_button(
+                                label="📥 このPDFを保存する", 
+                                data=pdf_data, 
+                                file_name="kaisetsu.pdf",
+                                mime="application/pdf"
+                            )
+                        else:
+                            st.error("⚠️ コンパイル中に致命的なエラーが発生し、PDFが作れませんでした。数式が複雑すぎるか、AIのコードに大きなミスがあります。")
+                            st.download_button(label="📝 エラーになったコード (.tex) を確認する", data=final_latex, file_name="kaisetsu_error.tex", mime="text/plain")
 
                     except FileNotFoundError:
                         st.error("⚠️ サーバー側にLaTeXシステムがまだインストールされていません。数分待ってから再度お試しください。")
                         st.download_button(label="📝 LaTeXソースコード (.tex) をダウンロード", data=final_latex, file_name="kaisetsu.tex", mime="text/plain")
-                    except subprocess.CalledProcessError as e:
-                        st.error("⚠️ コンパイル中にエラーが発生しました。数式が複雑すぎるか、AIのコードにミスがあります。")
-                        st.download_button(label="📝 エラーになったコード (.tex) を確認する", data=final_latex, file_name="kaisetsu_error.tex", mime="text/plain")
+                    except Exception as e:
+                        st.error(f"⚠️ 予期せぬエラーが発生しました。\n詳細: {e}")
 
             except Exception as e:
                 st.error(f"エラーが発生しました。\n詳細: {e}")
