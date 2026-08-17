@@ -2,3 +2,4 @@ streamlit
 google-genai
 Pillow
 streamlit-pdf-viewer
+streamlit-paste-button
