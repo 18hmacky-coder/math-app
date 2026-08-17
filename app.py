@@ -4,7 +4,7 @@ from PIL import Image
 import re
 import subprocess
 import os
-import base64
+from streamlit_pdf_viewer import pdf_viewer
 
 # ==========================================
 # 🔑 Streamlit Cloudの金庫からAPIキーを読み込む
@@ -201,22 +201,19 @@ if st.button("解説PDFを作成する"):
                 # ==========================================
                 with st.spinner("自動でPDFにコンパイル中... (数秒〜十数秒かかります)"):
                     try:
-                        # ★修正ポイント：厳密なエラーチェックを外し、少々のミスは無視して突き進む設定に変更しました！
                         subprocess.run(
                             ["lualatex", "-interaction=nonstopmode", "output.tex"], 
                             capture_output=True
                         )
                         
-                        # エラーの有無に関わらず、PDFが出来上がっていれば成功として画面に出す！
                         if os.path.exists("output.pdf"):
                             with open("output.pdf", "rb") as f:
                                 pdf_data = f.read()
                             
                             st.success("✨ 解説PDFの作成が完了しました！")
                             
-                            base64_pdf = base64.b64encode(pdf_data).decode('utf-8')
-                            pdf_display = f'<embed src="data:application/pdf;base64,{base64_pdf}" type="application/pdf" width="100%" height="800">'
-                            st.markdown(pdf_display, unsafe_allow_html=True)
+                            # ★修正ポイント：Edgeでも必ず表示される専用ビューワーを使用
+                            pdf_viewer("output.pdf")
                             
                             st.download_button(
                                 label="📥 このPDFを保存する", 
