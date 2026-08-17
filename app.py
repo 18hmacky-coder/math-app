@@ -133,7 +133,6 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 st.set_page_config(page_title="数学解説プリント作成AI", layout="centered", initial_sidebar_state="collapsed")
 st.title("📝 数学解説プリント作成AI (完全自動PDF表示版)")
 
-# ★追加：モード切り替えスイッチ
 app_mode = st.radio(
     "モードを選択してください",
     ["📝 解説プリント作成モード", "💯 厳格な答案添削モード（60点満点）"],
@@ -142,7 +141,7 @@ app_mode = st.radio(
 
 problem_text = st.text_area("テキストを入力してください（指示や問題文など）", height=100)
 
-st.write("▼ 問題の画像・答案のPDFなどを読み込む")
+st.write("▼ 問題の画像・答案のPDFなどを読み込む（複数可）")
 
 paste_result = paste_image_button(
     label="📋 クリップボードから画像を貼り付ける",
@@ -151,30 +150,37 @@ paste_result = paste_image_button(
     text_color="#000000"
 )
 
-uploaded_file = st.file_uploader("または、パソコンからファイルをアップロード", type=["png", "jpg", "jpeg", "pdf"])
+# ★修正：accept_multiple_files=Trueを追加して複数アップロード可能に
+uploaded_files = st.file_uploader(
+    "または、パソコンからファイルをアップロード（複数選択可）", 
+    type=["png", "jpg", "jpeg", "pdf"], 
+    accept_multiple_files=True
+)
 
-target_media = None
-is_pdf = False
+target_media_list = []
 
+# ペーストされた画像の追加
 if paste_result.image_data is not None:
-    target_media = paste_result.image_data
-    st.image(target_media, caption="貼り付けられた画像", use_container_width=True)
-elif uploaded_file is not None:
-    if uploaded_file.name.lower().endswith('.pdf'):
-        target_media = uploaded_file.read()
-        is_pdf = True
-        st.info(f"📄 PDFファイル ({uploaded_file.name}) が読み込まれました")
-    else:
-        target_media = Image.open(uploaded_file)
-        st.image(target_media, caption="アップロードされた画像", use_container_width=True)
+    target_media_list.append(("image", paste_result.image_data, "pasted_image.png"))
+    st.image(paste_result.image_data, caption="貼り付けられた画像", use_container_width=True)
+
+# アップロードされた複数ファイルの追加
+if uploaded_files:
+    for f in uploaded_files:
+        if f.name.lower().endswith('.pdf'):
+            target_media_list.append(("pdf", f.read(), f.name))
+            st.info(f"📄 PDFファイル ({f.name}) が読み込まれました")
+        else:
+            img = Image.open(f)
+            target_media_list.append(("image", img, f.name))
+            st.image(img, caption=f"アップロードされた画像: {f.name}", use_container_width=True)
 
 if st.button("PDFを作成する"):
-    if problem_text or target_media is not None:
+    if problem_text or len(target_media_list) > 0:
         with st.spinner("AIがLuaLaTeXコードを生成中..."):
             try:
                 client = genai.Client(api_key=API_KEY)
                 
-                # ★追加：モードに応じたプロンプトの切り替え
                 if app_mode == "📝 解説プリント作成モード":
                     prompt = f"""
                     1. 役割 (Role)
@@ -207,7 +213,6 @@ if st.button("PDFを作成する"):
                     【入力されたテキストの補足】: {problem_text}
                     """
                 else:
-                    # 厳格な添削モードのプロンプト
                     prompt = f"""
                     1. 役割 (Role)
                     あなたは日本の最難関大学を目指す受験生を指導する、非常に厳格な予備校講師兼LaTeX組版のエキスパートです。
@@ -244,14 +249,18 @@ if st.button("PDFを作成する"):
                 
                 content_list = [prompt]
                 
-                if target_media is not None:
-                    if is_pdf:
-                        with open("temp_upload.pdf", "wb") as f:
-                            f.write(target_media)
-                        gemini_file = client.files.upload(file="temp_upload.pdf")
+                # ★修正：複数のメディアをすべてAIのプロンプトに追加
+                for idx, media_item in enumerate(target_media_list):
+                    media_type, media_content, media_name = media_item
+                    
+                    if media_type == "pdf":
+                        temp_filename = f"temp_upload_{idx}.pdf"
+                        with open(temp_filename, "wb") as f:
+                            f.write(media_content)
+                        gemini_file = client.files.upload(file=temp_filename)
                         content_list.append(gemini_file)
                     else:
-                        content_list.append(target_media)
+                        content_list.append(media_content)
 
                 response = client.models.generate_content(
                     model='gemini-3.5-flash', 
@@ -300,4 +309,4 @@ if st.button("PDFを作成する"):
             except Exception as e:
                 st.error(f"エラーが発生しました。\n詳細: {e}")
     else:
-        st.warning("指示を入力するか、画像をアップロードしてください。")
+        st.warning("指示を入力するか、画像やPDFをアップロードしてください。")
