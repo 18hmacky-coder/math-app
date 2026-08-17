@@ -5,6 +5,7 @@ import re
 import subprocess
 import os
 from streamlit_pdf_viewer import pdf_viewer
+from streamlit_paste_button import paste_image_button
 
 # ==========================================
 # 🔑 Streamlit Cloudの金庫からAPIキーを読み込む
@@ -133,13 +134,32 @@ st.set_page_config(page_title="数学解説プリント作成AI", layout="center
 st.title("📝 数学解説プリント作成AI (完全自動PDF表示版)")
 
 problem_text = st.text_area("問題文を入力してください", height=100)
-uploaded_image = st.file_uploader("または、問題の画像をアップロード", type=["png", "jpg", "jpeg"])
 
-if uploaded_image is not None:
-    st.image(uploaded_image, caption="アップロードされた問題画像", use_container_width=True)
+st.write("▼ 問題の画像を読み込む")
+
+# ★追加：ペースト用の専用ボタン
+paste_result = paste_image_button(
+    label="📋 クリップボードから画像を貼り付ける",
+    background_color="#e0e0e0",
+    hover_background_color="#cccccc",
+    text_color="#000000"
+)
+
+uploaded_image = st.file_uploader("または、パソコンから画像をアップロード", type=["png", "jpg", "jpeg"])
+
+target_image = None
+
+# ペーストされた画像がある場合
+if paste_result.image_data is not None:
+    target_image = paste_result.image_data
+    st.image(target_image, caption="貼り付けられた問題画像", use_container_width=True)
+# アップロードされた画像がある場合
+elif uploaded_image is not None:
+    target_image = Image.open(uploaded_image)
+    st.image(target_image, caption="アップロードされた問題画像", use_container_width=True)
 
 if st.button("解説PDFを作成する"):
-    if problem_text or uploaded_image:
+    if problem_text or target_image:
         with st.spinner("AIがLuaLaTeXコードを生成中..."):
             try:
                 client = genai.Client(api_key=API_KEY)
@@ -175,11 +195,10 @@ if st.button("解説PDFを作成する"):
                 【問題文の補足】: {problem_text}
                 """
                 
-                if uploaded_image:
-                    img = Image.open(uploaded_image)
+                if target_image:
                     response = client.models.generate_content(
                         model='gemini-3.5-flash', 
-                        contents=[prompt, img]
+                        contents=[prompt, target_image]
                     )
                 else:
                     response = client.models.generate_content(
@@ -212,7 +231,6 @@ if st.button("解説PDFを作成する"):
                             
                             st.success("✨ 解説PDFの作成が完了しました！")
                             
-                            # ★修正ポイント：Edgeでも必ず表示される専用ビューワーを使用
                             pdf_viewer("output.pdf")
                             
                             st.download_button(
