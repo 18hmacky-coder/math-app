@@ -133,9 +133,16 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 st.set_page_config(page_title="数学解説プリント作成AI", layout="centered", initial_sidebar_state="collapsed")
 st.title("📝 数学解説プリント作成AI (完全自動PDF表示版)")
 
-problem_text = st.text_area("問題文を入力してください", height=100)
+# ★追加：モード切り替えスイッチ
+app_mode = st.radio(
+    "モードを選択してください",
+    ["📝 解説プリント作成モード", "💯 厳格な答案添削モード（60点満点）"],
+    horizontal=True
+)
 
-st.write("▼ 問題の画像・PDFを読み込む")
+problem_text = st.text_area("テキストを入力してください（指示や問題文など）", height=100)
+
+st.write("▼ 問題の画像・答案のPDFなどを読み込む")
 
 paste_result = paste_image_button(
     label="📋 クリップボードから画像を貼り付ける",
@@ -144,72 +151,103 @@ paste_result = paste_image_button(
     text_color="#000000"
 )
 
-# ★修正ポイント1：typeに "pdf" を追加しました
 uploaded_file = st.file_uploader("または、パソコンからファイルをアップロード", type=["png", "jpg", "jpeg", "pdf"])
 
 target_media = None
 is_pdf = False
 
-# ペーストされた画像がある場合
 if paste_result.image_data is not None:
     target_media = paste_result.image_data
-    st.image(target_media, caption="貼り付けられた問題画像", use_container_width=True)
-# アップロードされたファイルがある場合
+    st.image(target_media, caption="貼り付けられた画像", use_container_width=True)
 elif uploaded_file is not None:
-    # ★修正ポイント2：アップロードされたのがPDFか画像かで処理を分ける
     if uploaded_file.name.lower().endswith('.pdf'):
         target_media = uploaded_file.read()
         is_pdf = True
         st.info(f"📄 PDFファイル ({uploaded_file.name}) が読み込まれました")
     else:
         target_media = Image.open(uploaded_file)
-        st.image(target_media, caption="アップロードされた問題画像", use_container_width=True)
+        st.image(target_media, caption="アップロードされた画像", use_container_width=True)
 
-if st.button("解説PDFを作成する"):
+if st.button("PDFを作成する"):
     if problem_text or target_media is not None:
         with st.spinner("AIがLuaLaTeXコードを生成中..."):
             try:
                 client = genai.Client(api_key=API_KEY)
                 
-                prompt = f"""
-                1. 役割 (Role)
-                あなたは日本の最難関大学を目指す受験生のために、最高品質の解説プリントを作成する「予備校講師」兼「LaTeX組版のエキスパート」です。
+                # ★追加：モードに応じたプロンプトの切り替え
+                if app_mode == "📝 解説プリント作成モード":
+                    prompt = f"""
+                    1. 役割 (Role)
+                    あなたは日本の最難関大学を目指す受験生のために、最高品質の解説プリントを作成する「予備校講師」兼「LaTeX組版のエキスパート」です。
 
-                2. 思考・解説の基準 (Content Quality)
-                ターゲット: 東大・京大・医学部志望者。
-                解説深度: ごまかしのない厳密な論理展開。定義や第一原理への言及。
-                物理・数式表記: 単位は立体、数値との間には薄いスペースを入れる。数式は文中は $ ... $、別行は \[ ... \] を使用（$$...$$ は禁止）。
+                    2. 思考・解説の基準 (Content Quality)
+                    ターゲット: 東大・京大・医学部志望者。
+                    解説深度: ごまかしのない厳密な論理展開。定義や第一原理への言及。
+                    物理・数式表記: 単位は立体、数値との間には薄いスペースを入れる。数式は文中は $ ... $、別行は \[ ... \] を使用（$$...$$ は禁止）。
 
-                3. デザイン・構成ルール (Design & Structure)
-                以下の指定コマンドを用いてください。
-                - 問題文: \begin{{ascolorbox4A}}[出典]{{タイトル}} ... \end{{ascolorbox4A}} （必ず冒頭に）
-                - 解説本文: \begin{{multicols*}}{{2}} ... \end{{multicols*}}
-                - 小見出し: \ascboxZ{{見出し名}}
-                - 重要事項: \begin{{ptbs}}{{KEY}}[タイトル] ... \end{{ptbs}}
-                - 類題・参考: \begin{{simple}}[出典]{{タイトル}} ... \end{{simple}}
-                - 解答の末尾: \hspace{{\zw}}\textgt{{……(答)}}
+                    3. デザイン・構成ルール (Design & Structure)
+                    以下の指定コマンドを用いてください。
+                    - 問題文: \begin{{ascolorbox4A}}[出典]{{タイトル}} ... \end{{ascolorbox4A}} （必ず冒頭に）
+                    - 解説本文: \begin{{multicols*}}{{2}} ... \end{{multicols*}}
+                    - 小見出し: \ascboxZ{{見出し名}}
+                    - 重要事項: \begin{{ptbs}}{{KEY}}[タイトル] ... \end{{ptbs}}
+                    - 類題・参考: \begin{{simple}}[出典]{{タイトル}} ... \end{{simple}}
+                    - 解答の末尾: \hspace{{\zw}}\textgt{{……(答)}}
 
-                4. 余白制御の厳守事項 (Spacing Rules)
-                (1) \notefill は、段を切り替えた直後に左段の末尾を揃える目的でのみ使用。
-                (2) multicols* 環境の内部に \vspace, \vfill 等を不用意に挿入しない。
-                (3) 内容が少ない問題では \columnbreak を使用しない。
+                    4. 余白制御の厳守事項 (Spacing Rules)
+                    (1) \notefill は、段を切り替えた直後に左段の末尾を揃える目的でのみ使用。
+                    (2) multicols* 環境の内部に \vspace, \vfill 等を不用意に挿入しない。
+                    (3) 内容が少ない問題では \columnbreak を使用しない。
 
-                【絶対ルール】
-                \documentclass などの初期設定（プリアンブル）はシステム側で自動付与するため、**絶対に書かないでください。**
-                出力は必ず \begin{{document}} から始まり、\end{{document}} で終わるようにしてください。
-                出力全体を ```latex と ``` で囲んでください。
+                    【絶対ルール】
+                    \documentclass などの初期設定（プリアンブル）はシステム側で自動付与するため、**絶対に書かないでください。**
+                    出力は必ず \begin{{document}} から始まり、\end{{document}} で終わるようにしてください。
+                    出力全体を ```latex と ``` で囲んでください。
+                    
+                    【入力されたテキストの補足】: {problem_text}
+                    """
+                else:
+                    # 厳格な添削モードのプロンプト
+                    prompt = f"""
+                    1. 役割 (Role)
+                    あなたは日本の最難関大学を目指す受験生を指導する、非常に厳格な予備校講師兼LaTeX組版のエキスパートです。
+
+                    2. 添削・採点の基準 (Grading Quality)
+                    提供された答案（画像またはテキスト）を以下の厳格な基準で採点・添削してください。
+                    - 満点: 60点満点で採点する。
+                    - 採点姿勢: 採点には厳しい姿勢を貫き、論理の飛躍、計算ミス、記述の不備はすべて厳しく減点する。
+                    - 必須項目: 採点結果には必ず以下の3点を見やすく含めること。
+                      1. 点数（60点満点中）
+                      2. 加点ポイント
+                      3. 減点ポイント（減点した理由を明記）
+                    - 物理・数式表記: 数式は文中は $ ... $、別行は \[ ... \] を使用（$$...$$ は禁止）。
+
+                    3. デザイン・構成ルール (Design & Structure)
+                    以下の指定コマンドを用いて、見やすい添削レポートを作成してください。
+                    - タイトル・総評: \begin{{ascolorbox4A}}[添削結果]{{総合得点}} ... \end{{ascolorbox4A}} 
+                    - 添削本文: \begin{{multicols*}}{{2}} ... \end{{multicols*}}
+                    - 項目見出し: \ascboxZ{{見出し名}}
+                    - 加点・減点の詳細: \begin{{simple}}[採点基準]{{詳細}} ... \end{{simple}}
+
+                    4. 余白制御の厳守事項 (Spacing Rules)
+                    (1) \notefill は、段を切り替えた直後に左段の末尾を揃える目的でのみ使用。
+                    (2) multicols* 環境の内部に \vspace, \vfill 等を不用意に挿入しない。
+                    (3) 内容が少ない場合は \columnbreak を使用しない。
+
+                    【絶対ルール】
+                    \documentclass などの初期設定（プリアンブル）はシステム側で自動付与するため、**絶対に書かないでください。**
+                    出力は必ず \begin{{document}} から始まり、\end{{document}} で終わるようにしてください。
+                    出力全体を ```latex と ``` で囲んでください。
+                    
+                    【入力されたテキストの補足】: {problem_text}
+                    """
                 
-                【問題文の補足】: {problem_text}
-                """
-                
-                # ★修正ポイント3：PDFの場合は一度Geminiのサーバーにファイルを送信する
                 content_list = [prompt]
                 
                 if target_media is not None:
                     if is_pdf:
                         with open("temp_upload.pdf", "wb") as f:
                             f.write(target_media)
-                        # Geminiのファイル解析APIを使用
                         gemini_file = client.files.upload(file="temp_upload.pdf")
                         content_list.append(gemini_file)
                     else:
@@ -229,9 +267,6 @@ if st.button("解説PDFを作成する"):
                 with open("output.tex", "w", encoding="utf-8") as f:
                     f.write(final_latex)
 
-                # ==========================================
-                # PDFの自動コンパイルと画面表示処理
-                # ==========================================
                 with st.spinner("自動でPDFにコンパイル中... (数秒〜十数秒かかります)"):
                     try:
                         subprocess.run(
@@ -243,27 +278,26 @@ if st.button("解説PDFを作成する"):
                             with open("output.pdf", "rb") as f:
                                 pdf_data = f.read()
                             
-                            st.success("✨ 解説PDFの作成が完了しました！")
+                            st.success("✨ PDFの作成が完了しました！")
                             
                             pdf_viewer("output.pdf")
                             
                             st.download_button(
                                 label="📥 このPDFを保存する", 
                                 data=pdf_data, 
-                                file_name="kaisetsu.pdf",
+                                file_name="output.pdf",
                                 mime="application/pdf"
                             )
                         else:
-                            st.error("⚠️ コンパイル中に致命的なエラーが発生し、PDFが作れませんでした。数式が複雑すぎるか、AIのコードに大きなミスがあります。")
-                            st.download_button(label="📝 エラーになったコード (.tex) を確認する", data=final_latex, file_name="kaisetsu_error.tex", mime="text/plain")
+                            st.error("⚠️ コンパイル中に致命的なエラーが発生し、PDFが作れませんでした。")
+                            st.download_button(label="📝 エラーになったコード (.tex) を確認する", data=final_latex, file_name="error.tex", mime="text/plain")
 
                     except FileNotFoundError:
-                        st.error("⚠️ サーバー側にLaTeXシステムがまだインストールされていません。数分待ってから再度お試しください。")
-                        st.download_button(label="📝 LaTeXソースコード (.tex) をダウンロード", data=final_latex, file_name="kaisetsu.tex", mime="text/plain")
+                        st.error("⚠️ サーバー側にLaTeXシステムがまだインストールされていません。")
                     except Exception as e:
                         st.error(f"⚠️ 予期せぬエラーが発生しました。\n詳細: {e}")
 
             except Exception as e:
                 st.error(f"エラーが発生しました。\n詳細: {e}")
     else:
-        st.warning("問題文を入力するか、画像をアップロードしてください。")
+        st.warning("指示を入力するか、画像をアップロードしてください。")
