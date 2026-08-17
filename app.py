@@ -135,9 +135,8 @@ st.title("📝 数学解説プリント作成AI (完全自動PDF表示版)")
 
 problem_text = st.text_area("問題文を入力してください", height=100)
 
-st.write("▼ 問題の画像を読み込む")
+st.write("▼ 問題の画像・PDFを読み込む")
 
-# ★追加：ペースト用の専用ボタン
 paste_result = paste_image_button(
     label="📋 クリップボードから画像を貼り付ける",
     background_color="#e0e0e0",
@@ -145,21 +144,29 @@ paste_result = paste_image_button(
     text_color="#000000"
 )
 
-uploaded_image = st.file_uploader("または、パソコンから画像をアップロード", type=["png", "jpg", "jpeg"])
+# ★修正ポイント1：typeに "pdf" を追加しました
+uploaded_file = st.file_uploader("または、パソコンからファイルをアップロード", type=["png", "jpg", "jpeg", "pdf"])
 
-target_image = None
+target_media = None
+is_pdf = False
 
 # ペーストされた画像がある場合
 if paste_result.image_data is not None:
-    target_image = paste_result.image_data
-    st.image(target_image, caption="貼り付けられた問題画像", use_container_width=True)
-# アップロードされた画像がある場合
-elif uploaded_image is not None:
-    target_image = Image.open(uploaded_image)
-    st.image(target_image, caption="アップロードされた問題画像", use_container_width=True)
+    target_media = paste_result.image_data
+    st.image(target_media, caption="貼り付けられた問題画像", use_container_width=True)
+# アップロードされたファイルがある場合
+elif uploaded_file is not None:
+    # ★修正ポイント2：アップロードされたのがPDFか画像かで処理を分ける
+    if uploaded_file.name.lower().endswith('.pdf'):
+        target_media = uploaded_file.read()
+        is_pdf = True
+        st.info(f"📄 PDFファイル ({uploaded_file.name}) が読み込まれました")
+    else:
+        target_media = Image.open(uploaded_file)
+        st.image(target_media, caption="アップロードされた問題画像", use_container_width=True)
 
 if st.button("解説PDFを作成する"):
-    if problem_text or target_image:
+    if problem_text or target_media is not None:
         with st.spinner("AIがLuaLaTeXコードを生成中..."):
             try:
                 client = genai.Client(api_key=API_KEY)
@@ -195,16 +202,23 @@ if st.button("解説PDFを作成する"):
                 【問題文の補足】: {problem_text}
                 """
                 
-                if target_image:
-                    response = client.models.generate_content(
-                        model='gemini-3.5-flash', 
-                        contents=[prompt, target_image]
-                    )
-                else:
-                    response = client.models.generate_content(
-                        model='gemini-3.5-flash', 
-                        contents=prompt
-                    )
+                # ★修正ポイント3：PDFの場合は一度Geminiのサーバーにファイルを送信する
+                content_list = [prompt]
+                
+                if target_media is not None:
+                    if is_pdf:
+                        with open("temp_upload.pdf", "wb") as f:
+                            f.write(target_media)
+                        # Geminiのファイル解析APIを使用
+                        gemini_file = client.files.upload(file="temp_upload.pdf")
+                        content_list.append(gemini_file)
+                    else:
+                        content_list.append(target_media)
+
+                response = client.models.generate_content(
+                    model='gemini-3.5-flash', 
+                    contents=content_list
+                )
                 
                 latex_match = re.search(r"```latex\n(.*?)```", response.text, re.DOTALL)
                 latex_code = latex_match.group(1) if latex_match else response.text
