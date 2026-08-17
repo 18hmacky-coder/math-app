@@ -178,12 +178,12 @@ if st.button("解説PDFを作成する"):
                 if uploaded_image:
                     img = Image.open(uploaded_image)
                     response = client.models.generate_content(
-                        model='gemini-flash-latest', 
+                        model='gemini-3.5-flash', 
                         contents=[prompt, img]
                     )
                 else:
                     response = client.models.generate_content(
-                        model='gemini-flash-latest', 
+                        model='gemini-3.5-flash', 
                         contents=prompt
                     )
                 
