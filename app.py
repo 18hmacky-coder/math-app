@@ -128,54 +128,126 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 """
 
 # ==========================================
-# 2. Streamlit 画面構成
+# 2. Streamlit 画面構成（モダンデザイン版）
 # ==========================================
-st.set_page_config(page_title="数学解説プリント作成AI", layout="centered", initial_sidebar_state="collapsed")
-st.title("📝 数学解説プリント作成AI (完全自動PDF表示版)")
+st.set_page_config(page_title="AI解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
 
+# 🎨 洗練されたデザインにするためのカスタムCSS
+st.markdown("""
+    <style>
+    /* 全体の背景色をわずかに明るいグレーにして目に優しく */
+    .stApp {
+        background-color: #fcfcfc;
+    }
+    /* 見出しのデザイン */
+    h1 {
+        color: #2c3e50;
+        font-family: 'Helvetica Neue', sans-serif;
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+    /* PDF作成ボタン（メインボタン）をリッチに */
+    .stButton>button {
+        width: 100%;
+        background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+        color: white;
+        font-weight: bold;
+        font-size: 16px;
+        border-radius: 12px;
+        border: none;
+        padding: 12px 24px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+    /* テキストエリアの角を丸くして柔らかい印象に */
+    .stTextArea textarea {
+        border-radius: 10px;
+        border: 1px solid #dcdde1;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+    }
+    /* ラジオボタン（モード選択）の装飾 */
+    .stRadio>div {
+        background-color: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border: 1px solid #f1f2f6;
+    }
+    /* ファイルアップローダーの枠をスタイリッシュに */
+    .stFileUploader>div>div {
+        background-color: white;
+        border-radius: 10px;
+        border: 2px dashed #a4b0be;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("📝 AI解説・添削システム")
+st.markdown("<p style='color: #7f8fa6; margin-top: -10px; margin-bottom: 30px;'>最高品質のLaTeXプリントを自動生成します</p>", unsafe_allow_html=True)
+
+# UIを整理してスッキリ配置
 app_mode = st.radio(
-    "モードを選択してください",
+    "⚙️ 動作モード",
     ["📝 解説プリント作成モード", "💯 厳格な答案添削モード（60点満点）"],
     horizontal=True
 )
 
-problem_text = st.text_area("テキストを入力してください（指示や問題文など）", height=100)
+st.markdown("<br>", unsafe_allow_html=True) # 少し余白をあける
 
-st.write("▼ 問題の画像・答案のPDFなどを読み込む（複数可）")
+problem_text = st.text_area("✍️ テキスト入力（指示や問題文など）", height=100, placeholder="例：アップロードした画像の第2問を解説してください。")
 
-paste_result = paste_image_button(
-    label="📋 クリップボードから画像を貼り付ける",
-    background_color="#e0e0e0",
-    hover_background_color="#cccccc",
-    text_color="#000000"
-)
+st.markdown("### 📎 画像・PDFの読み込み")
 
-# ★修正：accept_multiple_files=Trueを追加して複数アップロード可能に
-uploaded_files = st.file_uploader(
-    "または、パソコンからファイルをアップロード（複数選択可）", 
-    type=["png", "jpg", "jpeg", "pdf"], 
-    accept_multiple_files=True
-)
+# 横に並べて省スペース＆スタイリッシュに
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    st.markdown("<div style='margin-top: 10px;'>", unsafe_allow_html=True)
+    paste_result = paste_image_button(
+        label="📋 クリップボードからペースト",
+        background_color="#f1f2f6",
+        hover_background_color="#dfe4ea",
+        text_color="#2f3542"
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+with col2:
+    uploaded_files = st.file_uploader(
+        "パソコンからアップロード", 
+        type=["png", "jpg", "jpeg", "pdf"], 
+        accept_multiple_files=True,
+        label_visibility="collapsed" # ラベルを隠してスッキリさせる
+    )
 
 target_media_list = []
 
-# ペーストされた画像の追加
+# 読み込んだ画像のプレビュー領域（カード風に表示）
+if paste_result.image_data is not None or uploaded_files:
+    st.markdown("---")
+    st.markdown("#### プレビュー")
+    
 if paste_result.image_data is not None:
     target_media_list.append(("image", paste_result.image_data, "pasted_image.png"))
-    st.image(paste_result.image_data, caption="貼り付けられた画像", use_container_width=True)
+    st.image(paste_result.image_data, caption="✅ ペーストされた画像", use_container_width=True)
 
-# アップロードされた複数ファイルの追加
 if uploaded_files:
     for f in uploaded_files:
         if f.name.lower().endswith('.pdf'):
             target_media_list.append(("pdf", f.read(), f.name))
-            st.info(f"📄 PDFファイル ({f.name}) が読み込まれました")
+            st.success(f"📄 PDFファイル読み込み完了: {f.name}")
         else:
             img = Image.open(f)
             target_media_list.append(("image", img, f.name))
-            st.image(img, caption=f"アップロードされた画像: {f.name}", use_container_width=True)
+            st.image(img, caption=f"✅ アップロード画像: {f.name}", use_container_width=True)
 
-if st.button("PDFを作成する"):
+st.markdown("<br>", unsafe_allow_html=True)
+
+# 実行ボタンから下の処理は今まで通り
+if st.button("🚀 PDFを作成する"):
     if problem_text or len(target_media_list) > 0:
         with st.spinner("AIがLuaLaTeXコードを生成中..."):
             try:
@@ -249,7 +321,6 @@ if st.button("PDFを作成する"):
                 
                 content_list = [prompt]
                 
-                # ★修正：複数のメディアをすべてAIのプロンプトに追加
                 for idx, media_item in enumerate(target_media_list):
                     media_type, media_content, media_name = media_item
                     
