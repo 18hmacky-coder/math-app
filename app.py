@@ -130,7 +130,7 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 # ==========================================
 # 2. Streamlit 画面構成（モダンデザイン版）
 # ==========================================
-st.set_page_config(page_title="AI解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
 
 # 🎨 洗練されたデザインにするためのカスタムCSS
 st.markdown("""
