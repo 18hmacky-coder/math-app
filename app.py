@@ -128,7 +128,6 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 \raggedbottom
 \newcommand{\notefill}{\vfill\null}
 """
-
 # ==========================================
 # 2. Streamlit 画面構成（モダンデザイン版）
 # ==========================================
@@ -142,7 +141,6 @@ if "pasted_images" not in st.session_state:
 if "last_pasted_hash" not in st.session_state:
     st.session_state.last_pasted_hash = None
 
-# ★追加：ペーストボタンを完全にリセットするための「鍵」を用意
 if "paste_key" not in st.session_state:
     st.session_state.paste_key = 0
 
@@ -159,6 +157,11 @@ st.markdown("""
     .stTextArea textarea { border-radius: 10px; border: 1px solid #dcdde1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
     .stRadio>div { background-color: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #f1f2f6; }
     .stFileUploader>div>div { background-color: white; border-radius: 10px; border: 2px dashed #a4b0be; }
+    /* 個別削除ボタンなどを少し目立たなくするための調整 */
+    div[data-testid="stButton"] button[kind="secondary"] {
+        border: 1px solid #dcdde1;
+        color: #2c3e50;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -185,7 +188,6 @@ col1, col2 = st.columns([1, 1])
 with col1:
     st.markdown("<div style='margin-top: 10px;'>", unsafe_allow_html=True)
     
-    # ★修正：ボタンに鍵（ID）を持たせる
     paste_result = paste_image_button(
         label="📋 クリップボードからペースト", 
         background_color="#f1f2f6", 
@@ -204,10 +206,9 @@ with col1:
             st.session_state.last_pasted_hash = img_hash
     
     if len(st.session_state.pasted_images) > 0:
-        if st.button("🗑️ ペースト画像をクリア", key="clear_paste"):
+        if st.button("🗑️ すべてのペースト画像をクリア", key="clear_paste"):
             st.session_state.pasted_images = []
             st.session_state.last_pasted_hash = None
-            # ★修正：鍵の番号を変えることで、ペーストボタンを完全にリセットする
             st.session_state.paste_key += 1 
             st.rerun()
 
@@ -223,10 +224,23 @@ target_media_list = []
 if len(st.session_state.pasted_images) > 0 or uploaded_files:
     st.markdown("---")
     st.markdown("#### プレビュー")
+
+# ★追加：個別に削除するためのインデックス保存用
+delete_idx = None
     
 for i, img in enumerate(st.session_state.pasted_images):
     target_media_list.append(("image", img, f"pasted_image_{i}.png"))
     st.image(img, caption=f"✅ ペーストされた画像 {i+1}", use_container_width=True)
+    
+    # ★追加：各画像の下に「この画像を削除」ボタンを配置
+    if st.button(f"🗑️ 画像 {i+1} だけを削除", key=f"del_paste_{i}"):
+        delete_idx = i
+
+# ★追加：個別削除ボタンが押された時の処理
+if delete_idx is not None:
+    st.session_state.pasted_images.pop(delete_idx)
+    st.session_state.paste_key += 1 
+    st.rerun()
 
 if uploaded_files:
     for f in uploaded_files:
