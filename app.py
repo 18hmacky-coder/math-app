@@ -132,51 +132,24 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 # ==========================================
 st.set_page_config(page_title="解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
 
+# ★追加：PDFが完成したことをアプリに記憶させるための箱を準備
+if "pdf_generated" not in st.session_state:
+    st.session_state.pdf_generated = False
+
 # 🎨 洗練されたデザインにするためのカスタムCSS
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #fcfcfc;
-    }
-    h1 {
-        color: #2c3e50;
-        font-family: 'Helvetica Neue', sans-serif;
-        font-weight: 700;
-        letter-spacing: 1px;
-    }
+    .stApp { background-color: #fcfcfc; }
+    h1 { color: #2c3e50; font-family: 'Helvetica Neue', sans-serif; font-weight: 700; letter-spacing: 1px; }
     .stButton>button {
-        width: 100%;
-        background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
-        color: white;
-        font-weight: bold;
-        font-size: 16px;
-        border-radius: 12px;
-        border: none;
-        padding: 12px 24px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
+        width: 100%; background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+        color: white; font-weight: bold; font-size: 16px; border-radius: 12px; border: none;
+        padding: 12px 24px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: all 0.3s ease;
     }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-    }
-    .stTextArea textarea {
-        border-radius: 10px;
-        border: 1px solid #dcdde1;
-        box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
-    }
-    .stRadio>div {
-        background-color: white;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        border: 1px solid #f1f2f6;
-    }
-    .stFileUploader>div>div {
-        background-color: white;
-        border-radius: 10px;
-        border: 2px dashed #a4b0be;
-    }
+    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); }
+    .stTextArea textarea { border-radius: 10px; border: 1px solid #dcdde1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
+    .stRadio>div { background-color: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #f1f2f6; }
+    .stFileUploader>div>div { background-color: white; border-radius: 10px; border: 2px dashed #a4b0be; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -189,8 +162,7 @@ app_mode = st.radio(
     horizontal=True
 )
 
-# ★追加：添削モードの時だけ「配点（満点）」の入力欄を表示する
-max_score = 60 # デフォルトは60点
+max_score = 60
 if app_mode == "💯 厳格な答案添削モード":
     max_score = st.number_input("💯 この問題の配点（満点）を入力してください", min_value=1, value=60, step=1)
 
@@ -199,25 +171,18 @@ st.markdown("<br>", unsafe_allow_html=True)
 problem_text = st.text_area("✍️ テキスト入力（指示や問題文など）", height=100, placeholder="例：アップロードした画像の第2問を解説してください。")
 
 st.markdown("### 📎 画像・PDFの読み込み")
-
 col1, col2 = st.columns([1, 1])
 
 with col1:
     st.markdown("<div style='margin-top: 10px;'>", unsafe_allow_html=True)
     paste_result = paste_image_button(
-        label="📋 クリップボードからペースト",
-        background_color="#f1f2f6",
-        hover_background_color="#dfe4ea",
-        text_color="#2f3542"
+        label="📋 クリップボードからペースト", background_color="#f1f2f6", hover_background_color="#dfe4ea", text_color="#2f3542"
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
     uploaded_files = st.file_uploader(
-        "パソコンからアップロード", 
-        type=["png", "jpg", "jpeg", "pdf"], 
-        accept_multiple_files=True,
-        label_visibility="collapsed"
+        "パソコンからアップロード", type=["png", "jpg", "jpeg", "pdf"], accept_multiple_files=True, label_visibility="collapsed"
     )
 
 target_media_list = []
@@ -280,7 +245,6 @@ if st.button("🚀 PDFを作成する"):
                     【入力されたテキストの補足】: {problem_text}
                     """
                 else:
-                    # ★修正：ユーザーが入力した配点（max_score）をAIへの指示に反映させる
                     prompt = f"""
                     1. 役割 (Role)
                     あなたは日本の最難関大学を目指す受験生を指導する、非常に厳格な予備校講師兼LaTeX組版のエキスパートです。
@@ -316,10 +280,8 @@ if st.button("🚀 PDFを作成する"):
                     """
                 
                 content_list = [prompt]
-                
                 for idx, media_item in enumerate(target_media_list):
                     media_type, media_content, media_name = media_item
-                    
                     if media_type == "pdf":
                         temp_filename = f"temp_upload_{idx}.pdf"
                         with open(temp_filename, "wb") as f:
@@ -329,15 +291,11 @@ if st.button("🚀 PDFを作成する"):
                     else:
                         content_list.append(media_content)
 
-                response = client.models.generate_content(
-                    model='gemini-3.5-flash', 
-                    contents=content_list
-                )
+                response = client.models.generate_content(model='gemini-3.5-flash', contents=content_list)
                 
                 latex_match = re.search(r"```latex\n(.*?)```", response.text, re.DOTALL)
                 latex_code = latex_match.group(1) if latex_match else response.text
                 latex_code = latex_code.replace(r"\begin{document}", "").replace(r"\end{document}", "").strip()
-                
                 final_latex = LATEX_PREAMBLE + "\n\\begin{document}\n" + latex_code + "\n\\end{document}\n"
                 
                 with open("output.tex", "w", encoding="utf-8") as f:
@@ -345,35 +303,42 @@ if st.button("🚀 PDFを作成する"):
 
                 with st.spinner("自動でPDFにコンパイル中... (数秒〜十数秒かかります)"):
                     try:
-                        subprocess.run(
-                            ["lualatex", "-interaction=nonstopmode", "output.tex"], 
-                            capture_output=True
-                        )
-                        
+                        subprocess.run(["lualatex", "-interaction=nonstopmode", "output.tex"], capture_output=True)
                         if os.path.exists("output.pdf"):
-                            with open("output.pdf", "rb") as f:
-                                pdf_data = f.read()
-                            
+                            st.session_state.pdf_generated = True
                             st.success("✨ PDFの作成が完了しました！")
-                            
-                            pdf_viewer("output.pdf")
-                            
-                            st.download_button(
-                                label="📥 このPDFを保存する", 
-                                data=pdf_data, 
-                                file_name="output.pdf",
-                                mime="application/pdf"
-                            )
                         else:
+                            st.session_state.pdf_generated = False
                             st.error("⚠️ コンパイル中に致命的なエラーが発生し、PDFが作れませんでした。")
                             st.download_button(label="📝 エラーになったコード (.tex) を確認する", data=final_latex, file_name="error.tex", mime="text/plain")
 
                     except FileNotFoundError:
+                        st.session_state.pdf_generated = False
                         st.error("⚠️ サーバー側にLaTeXシステムがまだインストールされていません。")
                     except Exception as e:
+                        st.session_state.pdf_generated = False
                         st.error(f"⚠️ 予期せぬエラーが発生しました。\n詳細: {e}")
 
             except Exception as e:
                 st.error(f"エラーが発生しました。\n詳細: {e}")
     else:
         st.warning("指示を入力するか、画像やPDFをアップロードしてください。")
+
+# ==========================================
+# プレビュー表示
+# ==========================================
+if st.session_state.get("pdf_generated", False) and os.path.exists("output.pdf"):
+    st.markdown("---")
+    st.markdown("### 📄 完成したPDF")
+    
+    with open("output.pdf", "rb") as f:
+        pdf_data = f.read()
+    
+    pdf_viewer("output.pdf")
+    
+    st.download_button(
+        label="📥 このPDFを保存する", 
+        data=pdf_data, 
+        file_name="output.pdf",
+        mime="application/pdf"
+    )
