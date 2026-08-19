@@ -186,7 +186,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📝 AI解説・添削システム")
+st.title("📝 解説・添削システム")
 st.markdown("<p style='color: #7f8fa6; margin-top: -10px; margin-bottom: 30px;'>最高品質のLaTeXプリントを自動生成します</p>", unsafe_allow_html=True)
 
 # UIを整理してスッキリ配置
