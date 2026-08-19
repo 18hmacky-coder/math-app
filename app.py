@@ -335,7 +335,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # --------------------------------
 # 実行ボタン & AI処理
 # --------------------------------
-if st.button("🚀 LaTeXコードを生成する", type="primary"):
+if st.button("🚀 PDFを生成する", type="primary"):
     if problem_text or len(target_media_list) > 0:
         with st.spinner("AIがLuaLaTeXコードを生成中..."):
             try:
