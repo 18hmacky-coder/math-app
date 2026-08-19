@@ -148,20 +148,28 @@ st.markdown("""
     <style>
     .stApp { background-color: #fcfcfc; }
     h1 { color: #2c3e50; font-family: 'Helvetica Neue', sans-serif; font-weight: 700; letter-spacing: 1px; }
-    .stButton>button {
-        width: 100%; background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
-        color: white; font-weight: bold; font-size: 16px; border-radius: 12px; border: none;
-        padding: 12px 24px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: all 0.3s ease;
+    
+    /* ★修正：メインのボタン（primary）だけを青グラデーション＋確実に白文字にする */
+    div[data-testid="stButton"] button[kind="primary"] {
+        width: 100%; 
+        background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+        color: #ffffff !important; /* 強制的に白文字にする */
+        font-weight: bold; 
+        font-size: 16px; 
+        border-radius: 12px; 
+        border: none;
+        padding: 12px 24px; 
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); 
+        transition: all 0.3s ease;
     }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); }
+    div[data-testid="stButton"] button[kind="primary"]:hover { 
+        transform: translateY(-2px); 
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); 
+    }
+    
     .stTextArea textarea { border-radius: 10px; border: 1px solid #dcdde1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
     .stRadio>div { background-color: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #f1f2f6; }
     .stFileUploader>div>div { background-color: white; border-radius: 10px; border: 2px dashed #a4b0be; }
-    /* 個別削除ボタンなどを少し目立たなくするための調整 */
-    div[data-testid="stButton"] button[kind="secondary"] {
-        border: 1px solid #dcdde1;
-        color: #2c3e50;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -225,18 +233,15 @@ if len(st.session_state.pasted_images) > 0 or uploaded_files:
     st.markdown("---")
     st.markdown("#### プレビュー")
 
-# ★追加：個別に削除するためのインデックス保存用
 delete_idx = None
     
 for i, img in enumerate(st.session_state.pasted_images):
     target_media_list.append(("image", img, f"pasted_image_{i}.png"))
     st.image(img, caption=f"✅ ペーストされた画像 {i+1}", use_container_width=True)
     
-    # ★追加：各画像の下に「この画像を削除」ボタンを配置
     if st.button(f"🗑️ 画像 {i+1} だけを削除", key=f"del_paste_{i}"):
         delete_idx = i
 
-# ★追加：個別削除ボタンが押された時の処理
 if delete_idx is not None:
     st.session_state.pasted_images.pop(delete_idx)
     st.session_state.paste_key += 1 
@@ -254,7 +259,8 @@ if uploaded_files:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-if st.button("🚀 PDFを作成する"):
+# ★修正：ボタンに type="primary" を追加して、特別なスタイルが当たるようにした
+if st.button("🚀 PDFを作成する", type="primary"):
     if problem_text or len(target_media_list) > 0:
         with st.spinner("AIがLuaLaTeXコードを生成中..."):
             try:
