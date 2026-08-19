@@ -130,7 +130,7 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 """
 
 # ==========================================
-# 2. Streamlit 画面構成（Canvas再現 UI）
+# 2. Streamlit 画面構成（Canvas再現 完璧版UI）
 # ==========================================
 st.set_page_config(page_title="解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
 
@@ -139,7 +139,7 @@ if "pasted_images" not in st.session_state: st.session_state.pasted_images = []
 if "last_pasted_hash" not in st.session_state: st.session_state.last_pasted_hash = None
 if "paste_key" not in st.session_state: st.session_state.paste_key = 0
 
-# 🎨 完全再現のためのカスタムCSS
+# 🎨 完全再現＆崩れないためのカスタムCSS
 st.markdown("""
     <style>
     /* ベース背景色 */
@@ -149,7 +149,7 @@ st.markdown("""
     h1 { color: #2c3e50; font-family: 'Helvetica Neue', sans-serif; font-weight: 800; text-align: center; font-size: 32px; padding-bottom: 0px;}
     h3 { font-size: 18px; color: #475569; margin-bottom: 10px; font-weight: 700; }
     
-    /* カードレイアウト (st.containerのボーダーを上書き) */
+    /* カードレイアウト */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: #ffffff;
         border-radius: 12px;
@@ -162,29 +162,14 @@ st.markdown("""
     /* ラジオボタンを横並びに */
     div.row-widget.stRadio > div { flex-direction: row; gap: 2rem; }
 
-    /* ペースト＆アップローダーエリアの装飾 */
-    div[data-testid="stHorizontalBlock"] button {
-        width: 100%;
-        height: 120px;
-        border-radius: 10px;
-        background-color: #f1f5f9;
-        border: 2px solid transparent;
-        color: #64748b;
-        font-weight: bold;
-    }
-    div[data-testid="stHorizontalBlock"] button:hover { border-color: #cbd5e1; }
-    
-    .stFileUploader > div > div {
-        height: 120px;
+    /* ファイルアップローダーのデザインをCanvas風に */
+    div[data-testid="stFileUploader"] > div > div {
         border-radius: 10px;
         background-color: #ffffff;
         border: 2px dashed #cbd5e1;
+        transition: border-color 0.3s;
     }
-
-    /* 「すべてクリア」ボタンをテキストリンク風に */
-    button[key="clear_all"] {
-        color: #ef4444 !important; background: none !important; border: none !important; box-shadow: none !important; float: right; font-weight: bold;
-    }
+    div[data-testid="stFileUploader"] > div > div:hover { border-color: #3b5998; }
 
     /* メイン実行ボタン */
     div[data-testid="stButton"] button[kind="primary"] {
@@ -200,34 +185,42 @@ st.markdown("""
         transition: all 0.3s ease;
     }
     div[data-testid="stButton"] button[kind="primary"]:hover { 
-        background-color: #2d4373;
-        transform: translateY(-2px); 
+        background-color: #2d4373; transform: translateY(-2px); 
     }
 
-    /* ★ ホバーで浮かび上がるゴミ箱UI ★ */
-    div[data-testid="column"]:has(img) { 
-        position: relative; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 15px;
+    /* ==================================================
+       🗑️ ホバーで浮かび上がるゴミ箱UI（絶対に崩れない安全版）
+       ================================================== */
+    /* 画像が入っているカラム枠の設定 */
+    div[data-testid="column"]:has(div[data-testid="stTooltipHoverTarget"]) { 
+        position: relative; 
+        border-radius: 8px;
+        overflow: hidden; 
     }
-    div[data-testid="column"]:has(img) img { 
-        transition: all 0.2s ease-in-out; 
+    
+    /* ホバーしたら画像を暗くする */
+    div[data-testid="column"]:has(div[data-testid="stTooltipHoverTarget"]):hover img {
+        opacity: 0.4; filter: brightness(0.8); transition: all 0.2s;
     }
-    /* 最初はゴミ箱ボタンを透明に */
-    div[data-testid="column"]:has(img) div[data-testid="stButton"] {
-        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    
+    /* tooltip領域（ゴミ箱ボタンを包む目印）を絶対配置で中央へ */
+    div[data-testid="stTooltipHoverTarget"] {
+        position: absolute; 
+        top: 50%; left: 50%; transform: translate(-50%, -50%);
         opacity: 0; transition: opacity 0.2s ease-in-out; z-index: 10;
     }
-    /* 画像にマウスを乗せたら画像を暗くしてゴミ箱を表示 */
-    div[data-testid="column"]:has(img):hover img { 
-        opacity: 0.4; filter: brightness(0.8);
+    
+    /* マウスを乗せたらゴミ箱ボタンを表示 */
+    div[data-testid="column"]:has(div[data-testid="stTooltipHoverTarget"]):hover div[data-testid="stTooltipHoverTarget"] {
+        opacity: 1;
     }
-    div[data-testid="column"]:has(img):hover div[data-testid="stButton"] { 
-        opacity: 1; 
-    }
-    /* 赤い丸いゴミ箱ボタンのデザイン */
-    div[data-testid="column"]:has(img) div[data-testid="stButton"] button {
-        background-color: #ef4444; color: white !important;
-        border-radius: 50%; width: 48px; height: 48px; padding: 0; border: none;
-        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+    
+    /* ゴミ箱ボタン自体の丸いデザイン */
+    div[data-testid="stTooltipHoverTarget"] button {
+        background-color: #ef4444 !important; color: white !important;
+        border-radius: 50% !important; width: 48px !important; height: 48px !important; 
+        padding: 0 !important; border: none !important;
+        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4) !important;
         display: flex; align-items: center; justify-content: center; font-size: 20px;
     }
     </style>
@@ -267,11 +260,10 @@ with st.container(border=True):
             label="📋 どこでもペースト (Ctrl+V)", 
             background_color="#f1f5f9", 
             hover_background_color="#e2e8f0", 
-            text_color="#475569",
+            text_color="#64748b",
             key=f"paste_btn_{st.session_state.paste_key}" 
         )
         
-        # ペーストされた画像の保存処理
         if paste_result.image_data is not None:
             buf = io.BytesIO()
             paste_result.image_data.save(buf, format="PNG")
@@ -288,7 +280,7 @@ with st.container(border=True):
     target_media_list = []
     delete_idx = None
     
-    # === 追加されたファイルのプレビューとグリッド表示 ===
+    # プレビュー表示用リスト作成
     all_media_preview = []
     for i, img in enumerate(st.session_state.pasted_images):
         all_media_preview.append({'type': 'paste', 'img': img, 'idx': i})
@@ -302,13 +294,14 @@ with st.container(border=True):
         with head_col1:
             st.markdown("**追加されたファイル**")
         with head_col2:
-            if st.button("🗑️ すべてクリア", key="clear_all"):
+            # すべてクリアボタンはテキストリンク風(tertiary)にする
+            if st.button("🗑️ すべてクリア", key="clear_all", type="tertiary"):
                 st.session_state.pasted_images = []
                 st.session_state.last_pasted_hash = None
                 st.session_state.paste_key += 1 
                 st.rerun()
         
-        # 3列のグリッドで表示（複数行対応）
+        # 3列のグリッドで表示
         for i in range(0, len(all_media_preview), 3):
             cols = st.columns(3)
             for j in range(3):
@@ -318,8 +311,9 @@ with st.container(border=True):
                         if item['type'] == 'paste':
                             target_media_list.append(("image", item['img'], f"pasted_image_{item['idx']}.png"))
                             st.image(item['img'], use_container_width=True)
-                            # ホバー時にのみ表示される削除ボタン
-                            if st.button("🗑️", key=f"del_paste_{item['idx']}"):
+                            
+                            # ★修正：help="delete_btn" を目印にして、CSSでこのボタンだけを丸いゴミ箱に変換する
+                            if st.button("🗑️", key=f"del_paste_{item['idx']}", help="delete_btn"):
                                 delete_idx = item['idx']
                         else:
                             f = item['file']
@@ -331,7 +325,6 @@ with st.container(border=True):
                                 target_media_list.append(("image", img, f.name))
                                 st.image(img, use_container_width=True)
 
-        # 個別削除が押された時の処理
         if delete_idx is not None:
             st.session_state.pasted_images.pop(delete_idx)
             st.session_state.paste_key += 1 
