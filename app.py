@@ -128,139 +128,221 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 \raggedbottom
 \newcommand{\notefill}{\vfill\null}
 """
+
 # ==========================================
-# 2. Streamlit 画面構成（モダンデザイン版）
+# 2. Streamlit 画面構成（Canvas再現 UI）
 # ==========================================
 st.set_page_config(page_title="解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
 
-if "pdf_generated" not in st.session_state:
-    st.session_state.pdf_generated = False
+if "pdf_generated" not in st.session_state: st.session_state.pdf_generated = False
+if "pasted_images" not in st.session_state: st.session_state.pasted_images = []
+if "last_pasted_hash" not in st.session_state: st.session_state.last_pasted_hash = None
+if "paste_key" not in st.session_state: st.session_state.paste_key = 0
 
-if "pasted_images" not in st.session_state:
-    st.session_state.pasted_images = []
-if "last_pasted_hash" not in st.session_state:
-    st.session_state.last_pasted_hash = None
-
-if "paste_key" not in st.session_state:
-    st.session_state.paste_key = 0
-
+# 🎨 完全再現のためのカスタムCSS
 st.markdown("""
     <style>
-    .stApp { background-color: #fcfcfc; }
-    h1 { color: #2c3e50; font-family: 'Helvetica Neue', sans-serif; font-weight: 700; letter-spacing: 1px; }
+    /* ベース背景色 */
+    .stApp { background-color: #f9fafb; }
     
-    /* ★修正：メインのボタン（primary）だけを青グラデーション＋確実に白文字にする */
+    /* タイトル typography */
+    h1 { color: #2c3e50; font-family: 'Helvetica Neue', sans-serif; font-weight: 800; text-align: center; font-size: 32px; padding-bottom: 0px;}
+    h3 { font-size: 18px; color: #475569; margin-bottom: 10px; font-weight: 700; }
+    
+    /* カードレイアウト (st.containerのボーダーを上書き) */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    /* ラジオボタンを横並びに */
+    div.row-widget.stRadio > div { flex-direction: row; gap: 2rem; }
+
+    /* ペースト＆アップローダーエリアの装飾 */
+    div[data-testid="stHorizontalBlock"] button {
+        width: 100%;
+        height: 120px;
+        border-radius: 10px;
+        background-color: #f1f5f9;
+        border: 2px solid transparent;
+        color: #64748b;
+        font-weight: bold;
+    }
+    div[data-testid="stHorizontalBlock"] button:hover { border-color: #cbd5e1; }
+    
+    .stFileUploader > div > div {
+        height: 120px;
+        border-radius: 10px;
+        background-color: #ffffff;
+        border: 2px dashed #cbd5e1;
+    }
+
+    /* 「すべてクリア」ボタンをテキストリンク風に */
+    button[key="clear_all"] {
+        color: #ef4444 !important; background: none !important; border: none !important; box-shadow: none !important; float: right; font-weight: bold;
+    }
+
+    /* メイン実行ボタン */
     div[data-testid="stButton"] button[kind="primary"] {
         width: 100%; 
-        background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
-        color: #ffffff !important; /* 強制的に白文字にする */
+        background-color: #3b5998; 
+        color: #ffffff !important; 
         font-weight: bold; 
-        font-size: 16px; 
-        border-radius: 12px; 
+        font-size: 18px; 
+        border-radius: 8px; 
         border: none;
-        padding: 12px 24px; 
+        padding: 16px; 
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); 
         transition: all 0.3s ease;
     }
     div[data-testid="stButton"] button[kind="primary"]:hover { 
+        background-color: #2d4373;
         transform: translateY(-2px); 
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); 
     }
-    
-    .stTextArea textarea { border-radius: 10px; border: 1px solid #dcdde1; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
-    .stRadio>div { background-color: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #f1f2f6; }
-    .stFileUploader>div>div { background-color: white; border-radius: 10px; border: 2px dashed #a4b0be; }
+
+    /* ★ ホバーで浮かび上がるゴミ箱UI ★ */
+    div[data-testid="column"]:has(img) { 
+        position: relative; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 15px;
+    }
+    div[data-testid="column"]:has(img) img { 
+        transition: all 0.2s ease-in-out; 
+    }
+    /* 最初はゴミ箱ボタンを透明に */
+    div[data-testid="column"]:has(img) div[data-testid="stButton"] {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        opacity: 0; transition: opacity 0.2s ease-in-out; z-index: 10;
+    }
+    /* 画像にマウスを乗せたら画像を暗くしてゴミ箱を表示 */
+    div[data-testid="column"]:has(img):hover img { 
+        opacity: 0.4; filter: brightness(0.8);
+    }
+    div[data-testid="column"]:has(img):hover div[data-testid="stButton"] { 
+        opacity: 1; 
+    }
+    /* 赤い丸いゴミ箱ボタンのデザイン */
+    div[data-testid="column"]:has(img) div[data-testid="stButton"] button {
+        background-color: #ef4444; color: white !important;
+        border-radius: 50%; width: 48px; height: 48px; padding: 0; border: none;
+        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+        display: flex; align-items: center; justify-content: center; font-size: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📝 解説・添削システム")
-st.markdown("<p style='color: #7f8fa6; margin-top: -10px; margin-bottom: 30px;'>最高品質のLaTeXプリントを自動生成します</p>", unsafe_allow_html=True)
+st.markdown("<h1>📝 解説・添削システム</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #64748b; margin-top: -10px; margin-bottom: 30px;'>最高品質のLaTeXプリントを自動生成します</p>", unsafe_allow_html=True)
 
-app_mode = st.radio(
-    "⚙️ 動作モード",
-    ["📝 解説プリント作成モード", "💯 厳格な答案添削モード"],
-    horizontal=True
-)
-
-max_score = 60
-if app_mode == "💯 厳格な答案添削モード":
-    max_score = st.number_input("💯 この問題の配点（満点）を入力してください", min_value=1, value=60, step=1)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-problem_text = st.text_area("✍️ テキスト入力（指示や問題文など）", height=100, placeholder="例：アップロードした画像の第2問を解説してください。")
-
-st.markdown("### 📎 画像・PDFの読み込み")
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    st.markdown("<div style='margin-top: 10px;'>", unsafe_allow_html=True)
+# --------------------------------
+# CARD 1: 動作モード
+# --------------------------------
+with st.container(border=True):
+    st.markdown("### ⚙️ 動作モード")
+    app_mode = st.radio(" ", ["📝 解説プリント作成モード", "💯 厳格な答案添削モード"], horizontal=True, label_visibility="collapsed")
     
-    paste_result = paste_image_button(
-        label="📋 クリップボードからペースト", 
-        background_color="#f1f2f6", 
-        hover_background_color="#dfe4ea", 
-        text_color="#2f3542",
-        key=f"paste_btn_{st.session_state.paste_key}" 
-    )
+    max_score = 60
+    if app_mode == "💯 厳格な答案添削モード":
+        max_score = st.number_input("💯 配点（満点）を入力してください", min_value=1, value=60, step=1)
+
+# --------------------------------
+# CARD 2: テキスト入力
+# --------------------------------
+with st.container(border=True):
+    st.markdown("### 🖊️ テキスト入力（指示や問題文など）")
+    problem_text = st.text_area(" ", height=100, placeholder="例：アップロードした画像の第2問を解説してください。", label_visibility="collapsed")
+
+# --------------------------------
+# CARD 3: 画像・PDFの読み込み
+# --------------------------------
+with st.container(border=True):
+    st.markdown("### 📎 画像・PDFの読み込み")
+    st.markdown("<p style='color: #64748b; font-size: 14px; margin-bottom: 15px;'>画像をコピーしてページ内で <b>Ctrl+V (Cmd+V)</b> を押すか、以下からアップロードしてください。</p>", unsafe_allow_html=True)
     
-    if paste_result.image_data is not None:
-        buf = io.BytesIO()
-        paste_result.image_data.save(buf, format="PNG")
-        img_hash = hashlib.md5(buf.getvalue()).hexdigest()
+    col_paste, col_up = st.columns(2)
+    with col_paste:
+        paste_result = paste_image_button(
+            label="📋 どこでもペースト (Ctrl+V)", 
+            background_color="#f1f5f9", 
+            hover_background_color="#e2e8f0", 
+            text_color="#475569",
+            key=f"paste_btn_{st.session_state.paste_key}" 
+        )
         
-        if img_hash != st.session_state.last_pasted_hash:
-            st.session_state.pasted_images.append(paste_result.image_data)
-            st.session_state.last_pasted_hash = img_hash
+        # ペーストされた画像の保存処理
+        if paste_result.image_data is not None:
+            buf = io.BytesIO()
+            paste_result.image_data.save(buf, format="PNG")
+            img_hash = hashlib.md5(buf.getvalue()).hexdigest()
+            if img_hash != st.session_state.last_pasted_hash:
+                st.session_state.pasted_images.append(paste_result.image_data)
+                st.session_state.last_pasted_hash = img_hash
+
+    with col_up:
+        uploaded_files = st.file_uploader(
+            "ファイルを選択 または ドロップ", type=["png", "jpg", "jpeg", "pdf"], accept_multiple_files=True, label_visibility="collapsed"
+        )
+
+    target_media_list = []
+    delete_idx = None
     
-    if len(st.session_state.pasted_images) > 0:
-        if st.button("🗑️ すべてのペースト画像をクリア", key="clear_paste"):
-            st.session_state.pasted_images = []
-            st.session_state.last_pasted_hash = None
+    # === 追加されたファイルのプレビューとグリッド表示 ===
+    all_media_preview = []
+    for i, img in enumerate(st.session_state.pasted_images):
+        all_media_preview.append({'type': 'paste', 'img': img, 'idx': i})
+    if uploaded_files:
+        for f in uploaded_files:
+            all_media_preview.append({'type': 'upload', 'file': f})
+
+    if len(all_media_preview) > 0:
+        st.markdown("<hr style='margin: 25px 0 15px 0; border-color: #e2e8f0;'>", unsafe_allow_html=True)
+        head_col1, head_col2 = st.columns([3, 1])
+        with head_col1:
+            st.markdown("**追加されたファイル**")
+        with head_col2:
+            if st.button("🗑️ すべてクリア", key="clear_all"):
+                st.session_state.pasted_images = []
+                st.session_state.last_pasted_hash = None
+                st.session_state.paste_key += 1 
+                st.rerun()
+        
+        # 3列のグリッドで表示（複数行対応）
+        for i in range(0, len(all_media_preview), 3):
+            cols = st.columns(3)
+            for j in range(3):
+                if i + j < len(all_media_preview):
+                    item = all_media_preview[i+j]
+                    with cols[j]:
+                        if item['type'] == 'paste':
+                            target_media_list.append(("image", item['img'], f"pasted_image_{item['idx']}.png"))
+                            st.image(item['img'], use_container_width=True)
+                            # ホバー時にのみ表示される削除ボタン
+                            if st.button("🗑️", key=f"del_paste_{item['idx']}"):
+                                delete_idx = item['idx']
+                        else:
+                            f = item['file']
+                            if f.name.lower().endswith('.pdf'):
+                                target_media_list.append(("pdf", f.read(), f.name))
+                                st.info(f"📄 {f.name}") # PDFはアイコンと名前表示
+                            else:
+                                img = Image.open(f)
+                                target_media_list.append(("image", img, f.name))
+                                st.image(img, use_container_width=True)
+
+        # 個別削除が押された時の処理
+        if delete_idx is not None:
+            st.session_state.pasted_images.pop(delete_idx)
             st.session_state.paste_key += 1 
             st.rerun()
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
-with col2:
-    uploaded_files = st.file_uploader(
-        "パソコンからアップロード", type=["png", "jpg", "jpeg", "pdf"], accept_multiple_files=True, label_visibility="collapsed"
-    )
-
-target_media_list = []
-
-if len(st.session_state.pasted_images) > 0 or uploaded_files:
-    st.markdown("---")
-    st.markdown("#### プレビュー")
-
-delete_idx = None
-    
-for i, img in enumerate(st.session_state.pasted_images):
-    target_media_list.append(("image", img, f"pasted_image_{i}.png"))
-    st.image(img, caption=f"✅ ペーストされた画像 {i+1}", use_container_width=True)
-    
-    if st.button(f"🗑️ 画像 {i+1} だけを削除", key=f"del_paste_{i}"):
-        delete_idx = i
-
-if delete_idx is not None:
-    st.session_state.pasted_images.pop(delete_idx)
-    st.session_state.paste_key += 1 
-    st.rerun()
-
-if uploaded_files:
-    for f in uploaded_files:
-        if f.name.lower().endswith('.pdf'):
-            target_media_list.append(("pdf", f.read(), f.name))
-            st.success(f"📄 PDFファイル読み込み完了: {f.name}")
-        else:
-            img = Image.open(f)
-            target_media_list.append(("image", img, f.name))
-            st.image(img, caption=f"✅ アップロード画像: {f.name}", use_container_width=True)
-
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ★修正：ボタンに type="primary" を追加して、特別なスタイルが当たるようにした
-if st.button("🚀 PDFを作成する", type="primary"):
+# --------------------------------
+# 実行ボタン & AI処理
+# --------------------------------
+if st.button("🚀 LaTeXコードを生成する", type="primary"):
     if problem_text or len(target_media_list) > 0:
         with st.spinner("AIがLuaLaTeXコードを生成中..."):
             try:
