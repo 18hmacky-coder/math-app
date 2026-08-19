@@ -4,6 +4,8 @@ from PIL import Image
 import re
 import subprocess
 import os
+import io
+import hashlib
 from streamlit_pdf_viewer import pdf_viewer
 from streamlit_paste_button import paste_image_button
 
@@ -132,11 +134,16 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 # ==========================================
 st.set_page_config(page_title="解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
 
-# ★追加：PDFが完成したことをアプリに記憶させるための箱を準備
 if "pdf_generated" not in st.session_state:
     st.session_state.pdf_generated = False
 
-# 🎨 洗練されたデザインにするためのカスタムCSS
+# ★追加：ペーストされた複数の画像を記憶するリスト
+if "pasted_images" not in st.session_state:
+    st.session_state.pasted_images = []
+# 同じ画像が重複して入らないようにするためのハッシュ記憶
+if "last_pasted_hash" not in st.session_state:
+    st.session_state.last_pasted_hash = None
+
 st.markdown("""
     <style>
     .stApp { background-color: #fcfcfc; }
@@ -178,6 +185,24 @@ with col1:
     paste_result = paste_image_button(
         label="📋 クリップボードからペースト", background_color="#f1f2f6", hover_background_color="#dfe4ea", text_color="#2f3542"
     )
+    
+    # ★追加：ペーストされた画像をリストに追加する処理
+    if paste_result.image_data is not None:
+        buf = io.BytesIO()
+        paste_result.image_data.save(buf, format="PNG")
+        img_hash = hashlib.md5(buf.getvalue()).hexdigest()
+        
+        if img_hash != st.session_state.last_pasted_hash:
+            st.session_state.pasted_images.append(paste_result.image_data)
+            st.session_state.last_pasted_hash = img_hash
+    
+    # ★追加：ペーストした画像が1枚以上あるときだけクリアボタンを表示
+    if len(st.session_state.pasted_images) > 0:
+        if st.button("🗑️ ペースト画像をクリア", key="clear_paste"):
+            st.session_state.pasted_images = []
+            st.session_state.last_pasted_hash = None
+            st.rerun()
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col2:
@@ -187,13 +212,14 @@ with col2:
 
 target_media_list = []
 
-if paste_result.image_data is not None or uploaded_files:
+if len(st.session_state.pasted_images) > 0 or uploaded_files:
     st.markdown("---")
     st.markdown("#### プレビュー")
     
-if paste_result.image_data is not None:
-    target_media_list.append(("image", paste_result.image_data, "pasted_image.png"))
-    st.image(paste_result.image_data, caption="✅ ペーストされた画像", use_container_width=True)
+# ★修正：記憶しているすべてのペースト画像を表示する
+for i, img in enumerate(st.session_state.pasted_images):
+    target_media_list.append(("image", img, f"pasted_image_{i}.png"))
+    st.image(img, caption=f"✅ ペーストされた画像 {i+1}", use_container_width=True)
 
 if uploaded_files:
     for f in uploaded_files:
