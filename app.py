@@ -130,23 +130,20 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 # ==========================================
 # 2. Streamlit 画面構成（モダンデザイン版）
 # ==========================================
-st.set_page_config(page_title="解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="AI解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
 
 # 🎨 洗練されたデザインにするためのカスタムCSS
 st.markdown("""
     <style>
-    /* 全体の背景色をわずかに明るいグレーにして目に優しく */
     .stApp {
         background-color: #fcfcfc;
     }
-    /* 見出しのデザイン */
     h1 {
         color: #2c3e50;
         font-family: 'Helvetica Neue', sans-serif;
         font-weight: 700;
         letter-spacing: 1px;
     }
-    /* PDF作成ボタン（メインボタン）をリッチに */
     .stButton>button {
         width: 100%;
         background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
@@ -163,13 +160,11 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
     }
-    /* テキストエリアの角を丸くして柔らかい印象に */
     .stTextArea textarea {
         border-radius: 10px;
         border: 1px solid #dcdde1;
         box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
     }
-    /* ラジオボタン（モード選択）の装飾 */
     .stRadio>div {
         background-color: white;
         padding: 15px;
@@ -177,7 +172,6 @@ st.markdown("""
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         border: 1px solid #f1f2f6;
     }
-    /* ファイルアップローダーの枠をスタイリッシュに */
     .stFileUploader>div>div {
         background-color: white;
         border-radius: 10px;
@@ -186,23 +180,26 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📝 解説・添削システム")
+st.title("📝 AI解説・添削システム")
 st.markdown("<p style='color: #7f8fa6; margin-top: -10px; margin-bottom: 30px;'>最高品質のLaTeXプリントを自動生成します</p>", unsafe_allow_html=True)
 
-# UIを整理してスッキリ配置
 app_mode = st.radio(
     "⚙️ 動作モード",
-    ["📝 解説プリント作成モード", "💯 厳格な答案添削モード（60点満点）"],
+    ["📝 解説プリント作成モード", "💯 厳格な答案添削モード"],
     horizontal=True
 )
 
-st.markdown("<br>", unsafe_allow_html=True) # 少し余白をあける
+# ★追加：添削モードの時だけ「配点（満点）」の入力欄を表示する
+max_score = 60 # デフォルトは60点
+if app_mode == "💯 厳格な答案添削モード":
+    max_score = st.number_input("💯 この問題の配点（満点）を入力してください", min_value=1, value=60, step=1)
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 problem_text = st.text_area("✍️ テキスト入力（指示や問題文など）", height=100, placeholder="例：アップロードした画像の第2問を解説してください。")
 
 st.markdown("### 📎 画像・PDFの読み込み")
 
-# 横に並べて省スペース＆スタイリッシュに
 col1, col2 = st.columns([1, 1])
 
 with col1:
@@ -220,12 +217,11 @@ with col2:
         "パソコンからアップロード", 
         type=["png", "jpg", "jpeg", "pdf"], 
         accept_multiple_files=True,
-        label_visibility="collapsed" # ラベルを隠してスッキリさせる
+        label_visibility="collapsed"
     )
 
 target_media_list = []
 
-# 読み込んだ画像のプレビュー領域（カード風に表示）
 if paste_result.image_data is not None or uploaded_files:
     st.markdown("---")
     st.markdown("#### プレビュー")
@@ -246,7 +242,6 @@ if uploaded_files:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 実行ボタンから下の処理は今まで通り
 if st.button("🚀 PDFを作成する"):
     if problem_text or len(target_media_list) > 0:
         with st.spinner("AIがLuaLaTeXコードを生成中..."):
@@ -285,23 +280,24 @@ if st.button("🚀 PDFを作成する"):
                     【入力されたテキストの補足】: {problem_text}
                     """
                 else:
+                    # ★修正：ユーザーが入力した配点（max_score）をAIへの指示に反映させる
                     prompt = f"""
                     1. 役割 (Role)
                     あなたは日本の最難関大学を目指す受験生を指導する、非常に厳格な予備校講師兼LaTeX組版のエキスパートです。
 
                     2. 添削・採点の基準 (Grading Quality)
                     提供された答案（画像またはテキスト）を以下の厳格な基準で採点・添削してください。
-                    - 満点: 60点満点で採点する。
+                    - 満点: {max_score}点満点で採点する。
                     - 採点姿勢: 採点には厳しい姿勢を貫き、論理の飛躍、計算ミス、記述の不備はすべて厳しく減点する。
                     - 必須項目: 採点結果には必ず以下の3点を見やすく含めること。
-                      1. 点数（60点満点中）
+                      1. 点数（{max_score}点満点中）
                       2. 加点ポイント
                       3. 減点ポイント（減点した理由を明記）
                     - 物理・数式表記: 数式は文中は $ ... $、別行は \[ ... \] を使用（$$...$$ は禁止）。
 
                     3. デザイン・構成ルール (Design & Structure)
                     以下の指定コマンドを用いて、見やすい添削レポートを作成してください。
-                    - タイトル・総評: \begin{{ascolorbox4A}}[添削結果]{{総合得点}} ... \end{{ascolorbox4A}} 
+                    - タイトル・総評: \begin{{ascolorbox4A}}[添削結果]{{{max_score}点満点}} ... \end{{ascolorbox4A}} 
                     - 添削本文: \begin{{multicols*}}{{2}} ... \end{{multicols*}}
                     - 項目見出し: \ascboxZ{{見出し名}}
                     - 加点・減点の詳細: \begin{{simple}}[採点基準]{{詳細}} ... \end{{simple}}
