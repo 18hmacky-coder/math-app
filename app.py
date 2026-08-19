@@ -133,49 +133,55 @@ titleunderline@ascolorbox/.style={underlay pre={\draw[very thick,draw=gray] ([ys
 st.set_page_config(page_title="解説・添削システム", layout="centered", initial_sidebar_state="collapsed")
 
 # 🎨 洗練されたデザインにするためのカスタムCSS
-# 🎨 ポップで元気なステッカー風デザイン
 st.markdown("""
     <style>
-    /* 背景は少し温かみのあるオフホワイトに */
+    /* 全体の背景色をわずかに明るいグレーにして目に優しく */
     .stApp {
-        background-color: #Fdfbf7;
+        background-color: #fcfcfc;
     }
-    /* 見出しをポップに（オレンジ×黄色の影） */
+    /* 見出しのデザイン */
     h1 {
-        color: #FF5722;
-        font-weight: 900;
-        text-shadow: 2px 2px 0px #FFD54F;
+        color: #2c3e50;
+        font-family: 'Helvetica Neue', sans-serif;
+        font-weight: 700;
+        letter-spacing: 1px;
     }
-    /* メインボタンをステッカー風のポップなデザインに */
+    /* PDF作成ボタン（メインボタン）をリッチに */
     .stButton>button {
         width: 100%;
-        background-color: #FFDE03; /* 目を引く明るいイエロー */
-        color: #0336FF; /* 文字はハッキリとしたブルー */
-        font-weight: 900;
-        font-size: 18px;
-        border-radius: 8px;
-        border: 3px solid #000000; /* 太めの黒枠 */
+        background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+        color: white;
+        font-weight: bold;
+        font-size: 16px;
+        border-radius: 12px;
+        border: none;
         padding: 12px 24px;
-        box-shadow: 4px 4px 0px #000000; /* くっきりした黒い影 */
-        transition: all 0.1s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
     }
-    /* ボタンを押したときのヘコミの動き（押し心地が気持ちいい） */
-    .stButton>button:active {
-        transform: translate(4px, 4px);
-        box-shadow: 0px 0px 0px #000000;
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
     }
-    /* テキストエリアやラジオボタンの枠線も太めにしてポップに */
-    .stTextArea textarea, .stRadio>div {
-        border-radius: 8px;
-        border: 3px solid #000000;
-        background-color: #FFFFFF;
-        box-shadow: 4px 4px 0px #E0E0E0;
+    /* テキストエリアの角を丸くして柔らかい印象に */
+    .stTextArea textarea {
+        border-radius: 10px;
+        border: 1px solid #dcdde1;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
     }
-    /* ファイルアップローダーは点線にして遊び心を */
+    /* ラジオボタン（モード選択）の装飾 */
+    .stRadio>div {
+        background-color: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border: 1px solid #f1f2f6;
+    }
+    /* ファイルアップローダーの枠をスタイリッシュに */
     .stFileUploader>div>div {
-        border-radius: 8px;
-        border: 3px dashed #0336FF;
-        background-color: #FFFFFF;
+        background-color: white;
+        border-radius: 10px;
+        border: 2px dashed #a4b0be;
     }
     </style>
 """, unsafe_allow_html=True)
