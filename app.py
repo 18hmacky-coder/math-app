@@ -137,12 +137,14 @@ st.set_page_config(page_title="解説・添削システム", layout="centered", 
 if "pdf_generated" not in st.session_state:
     st.session_state.pdf_generated = False
 
-# ★追加：ペーストされた複数の画像を記憶するリスト
 if "pasted_images" not in st.session_state:
     st.session_state.pasted_images = []
-# 同じ画像が重複して入らないようにするためのハッシュ記憶
 if "last_pasted_hash" not in st.session_state:
     st.session_state.last_pasted_hash = None
+
+# ★追加：ペーストボタンを完全にリセットするための「鍵」を用意
+if "paste_key" not in st.session_state:
+    st.session_state.paste_key = 0
 
 st.markdown("""
     <style>
@@ -182,11 +184,16 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.markdown("<div style='margin-top: 10px;'>", unsafe_allow_html=True)
+    
+    # ★修正：ボタンに鍵（ID）を持たせる
     paste_result = paste_image_button(
-        label="📋 クリップボードからペースト", background_color="#f1f2f6", hover_background_color="#dfe4ea", text_color="#2f3542"
+        label="📋 クリップボードからペースト", 
+        background_color="#f1f2f6", 
+        hover_background_color="#dfe4ea", 
+        text_color="#2f3542",
+        key=f"paste_btn_{st.session_state.paste_key}" 
     )
     
-    # ★追加：ペーストされた画像をリストに追加する処理
     if paste_result.image_data is not None:
         buf = io.BytesIO()
         paste_result.image_data.save(buf, format="PNG")
@@ -196,11 +203,12 @@ with col1:
             st.session_state.pasted_images.append(paste_result.image_data)
             st.session_state.last_pasted_hash = img_hash
     
-    # ★追加：ペーストした画像が1枚以上あるときだけクリアボタンを表示
     if len(st.session_state.pasted_images) > 0:
         if st.button("🗑️ ペースト画像をクリア", key="clear_paste"):
             st.session_state.pasted_images = []
             st.session_state.last_pasted_hash = None
+            # ★修正：鍵の番号を変えることで、ペーストボタンを完全にリセットする
+            st.session_state.paste_key += 1 
             st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -216,7 +224,6 @@ if len(st.session_state.pasted_images) > 0 or uploaded_files:
     st.markdown("---")
     st.markdown("#### プレビュー")
     
-# ★修正：記憶しているすべてのペースト画像を表示する
 for i, img in enumerate(st.session_state.pasted_images):
     target_media_list.append(("image", img, f"pasted_image_{i}.png"))
     st.image(img, caption=f"✅ ペーストされた画像 {i+1}", use_container_width=True)
